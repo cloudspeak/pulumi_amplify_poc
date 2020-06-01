@@ -1,6 +1,8 @@
 * Do not call `amplify push`
+* When schema changes call `amplify api gql-compile`
 
-
+* Still creates amplify app and deployment bucket
+* Different DB backend?
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 

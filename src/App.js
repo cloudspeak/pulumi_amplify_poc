@@ -17,16 +17,26 @@ const createNote = `mutation createNote($note: String!){
   }
 }`;
 
+// const readNote = `query listNotes{
+//   listNotes{
+//     items{
+//       __typename
+//       id
+//       note
+//       owner
+//     }
+//   }
+// }`;
+
 const readNote = `query listNotes{
-  listNotes{
-    items{
-      __typename
-      id
-      note
-      owner
+    listNotes{
+      items{
+        __typename
+        id
+        note
+      }
     }
-  }
-}`;
+  }`;
 
 const updateNote = `mutation updateNote($id: ID!,$note: String){
   updateNote(input:{
@@ -162,4 +172,5 @@ class App extends Component {
     );
   }
 }
-export default withAuthenticator(App, { includeGreetings: true });
+//export default withAuthenticator(App, { includeGreetings: true });
+export default App

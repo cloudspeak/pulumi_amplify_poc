@@ -8,7 +8,12 @@ from pulumi_aws.get_caller_identity import get_caller_identity
 aws_region = config.region
 account_id = get_caller_identity().account_id
 
-schema = Path("schema.graphql").read_text()
+
+amplify_api_name = "notespulumi"
+amplify_api_build_dir = Path("amplify/backend/api").joinpath(amplify_api_name).joinpath("build")
+schema_path = amplify_api_build_dir.joinpath("schema.graphql")
+
+schema = schema_path.read_text()
 
 user_pool = cognito.UserPool("MyUserPool")
 
@@ -92,47 +97,37 @@ notes_data_source = appsync.DataSource("MyDataSource",
         dynamodb_config={
             "table_name": notes_table.name
         },
-        opts=ResourceOptions(depends_on=data_source_iam_role)
+        opts=ResourceOptions(depends_on=[data_source_iam_role])
 )
+
+
 
 get_notes_resolver = appsync.Resolver("MyGetNotesResolver",
         api_id=graphql_api.id,
         data_source=notes_data_source.name,
         field="getNote",
-        type="Query"
+        type="Query",
+        request_template=amplify_api_build_dir.joinpath("resolvers/Query.getNote.req.vtl").read_text(),
+        response_template=amplify_api_build_dir.joinpath("resolvers/Query.getNote.res.vtl").read_text()
 )
 
 list_notes_resolver = appsync.Resolver("ListGetNotesResolver",
         api_id=graphql_api.id,
         data_source=notes_data_source.name,
         field="listNotes",
-        type="Query"
+        type="Query",
+        request_template=amplify_api_build_dir.joinpath("resolvers/Query.listNotes.req.vtl").read_text(),
+        response_template=amplify_api_build_dir.joinpath("resolvers/Query.listNotes.res.vtl").read_text()
 )
 
-
-notes_table.name.apply(lambda table_name: print(f"""{{
-    "Version": "2012-10-17",
-    "Statement": [
-        {{
-            "Effect": "Allow",
-            "Action": [
-                "dynamodb:BatchGetItem",
-                "dynamodb:BatchWriteItem",
-                "dynamodb:PutItem",
-                "dynamodb:DeleteItem",
-                "dynamodb:GetItem",
-                "dynamodb:Scan",
-                "dynamodb:Query",
-                "dynamodb:UpdateItem"
-            ],
-            "Resource": [
-                "arn:aws:dynamodb:{aws_region}:{account_id}:table/{table_name}",
-                "arn:aws:dynamodb:{aws_region}:{account_id}:table/{table_name}/*"
-            ]
-        }}
-    ]
-}}"""))
-
+create_note_resolver = appsync.Resolver("MyCreateNotesResolver",
+        api_id=graphql_api.id,
+        data_source=notes_data_source.name,
+        field="createNote",
+        type="Mutation",
+        request_template=amplify_api_build_dir.joinpath("resolvers/Mutation.createNote.req.vtl").read_text(),
+        response_template=amplify_api_build_dir.joinpath("resolvers/Mutation.createNote.res.vtl").read_text()
+)
 
 pulumi.export('graphql_api_uri',  graphql_api.uris["GRAPHQL"])
 pulumi.export('user_pool_id',  user_pool.id)

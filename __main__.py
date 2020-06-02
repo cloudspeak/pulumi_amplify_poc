@@ -25,20 +25,14 @@ user_pool_client = cognito.UserPoolClient("MyUserPoolClient",
 stack_name = amplify_api_name
 
 graphql_api = appsync.GraphQLApi(f"{stack_name}_graphql_api",
-        authentication_type="API_KEY",
-        # authentication_type="AMAZON_COGNITO_USER_POOLS",
-        # user_pool_config={
-        #     "default_action": "DENY",
-        #     "user_pool_id": user_pool.id,
-        #     "app_id_client_regex": user_pool_client.id
-        # },
+        authentication_type="AMAZON_COGNITO_USER_POOLS",
+        user_pool_config={
+            "default_action": "ALLOW",
+            "user_pool_id": user_pool.id,
+            "app_id_client_regex": user_pool_client.id
+        },
         schema=schema
 )
-
-graphql_api_key = appsync.ApiKey(f"{stack_name}_graphql_api",
-    api_id=graphql_api.id
-)
-
 
 
 def generate_dynamo_data_source(type_name):
@@ -163,11 +157,7 @@ def generate_resolvers(type_name, data_source):
     return resolvers
 
 note_resources = generate_dynamo_data_source("Note")
-person_resources = generate_dynamo_data_source("Person")
 
 pulumi.export('graphql_api_uri',  graphql_api.uris["GRAPHQL"])
-
-pulumi.export('graphql_api_key',  graphql_api_key.key)
-
 pulumi.export('user_pool_id',  user_pool.id)
 pulumi.export('user_pool_client_id',  user_pool_client.id)

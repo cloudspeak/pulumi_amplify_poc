@@ -1,10 +1,32 @@
+# Pulumi Amplify Proof-of-concept
+
 * Do not call `amplify push`
 * When schema changes call `amplify api gql-compile`
-
+* `amplify codegen`
 * Still creates amplify app and deployment bucket
 * Different DB backend?
+* Presumably only need to support cognito auth
+
+
+## Updating the Schema
+
+If the schema changes you must run the following commands:
+
+* `amplify codegen` to rebuild the client helper classes
+* `amplify api gql-compile` to rebuild the backend schema and resolvers
+* `pulumi up` to push the new backend configuration to AppSync
+
+## To set this up:
+
+amplify init
+Include cognito
+amplify add api
+amplify codegen add
+
+# React frontend
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+
 
 ## Available Scripts
 

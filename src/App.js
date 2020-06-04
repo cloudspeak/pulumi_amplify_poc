@@ -121,19 +121,19 @@ class App extends Component {
   render() {
     const data = [].concat(this.state.notes)
       .map((item,i)=> {
-        //if (item.owner === this.state.userId) {
+        if (item.owner === this.state.userId) {
           return (<div key={item.id} className="alert alert-primary alert-dismissible show" role="alert">
             <span key={item.i} onClick={this.selectNote.bind(this, item)}>{item.note}</span>
             <button key={item.i} type="button" className="close" data-dismiss="alert" aria-label="Close" onClick={this.handleDelete.bind(this, item.id)}>
               <span aria-hidden="true">&times;</span>
             </button>
           </div>)
-        // }
-        // else {
-        //   return (<div key={item.id} className="alert alert-primary alert-dismissible show" role="alert">
-        //     <span key={item.i}>{item.note}</span>
-        //   </div>)
-        // }
+        }
+        else {
+          return (<div key={item.id} className="alert alert-primary alert-dismissible show" role="alert">
+            <span key={item.i}>{item.note}</span>
+          </div>)
+        }
       }
       
       )

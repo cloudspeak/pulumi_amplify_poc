@@ -1,20 +1,35 @@
 from pathlib import Path
 from re import match
+from typing import Any, Optional, Dict
 
 import pulumi
-from pulumi import ResourceOptions
+from pulumi import Input, ResourceOptions
 from pulumi_aws import appsync, cognito, config, dynamodb, iam, s3
 from pulumi_aws.get_caller_identity import get_caller_identity
+from amplify_exports_file import AmplifyExportsFile
+
+# Modify the variable below if you add new GraphQL types to the schema.
+
+graphql_types = [
+    "Note"
+]
+
+amplify_api_name = "notespulumi"
+
+
+######
 
 aws_region = config.region
 account_id = get_caller_identity().account_id
 
-
-amplify_api_name = "notespulumi"
 amplify_api_build_dir = Path("amplify/backend/api").joinpath(amplify_api_name).joinpath("build")
 schema_path = amplify_api_build_dir.joinpath("schema.graphql")
-
 schema = schema_path.read_text()
+
+
+
+
+# Resources
 
 user_pool = cognito.UserPool("MyUserPool")
 
@@ -33,7 +48,6 @@ graphql_api = appsync.GraphQLApi(f"{stack_name}_graphql_api",
         },
         schema=schema
 )
-
 
 def generate_dynamo_data_source(type_name):
     """
@@ -156,7 +170,19 @@ def generate_resolvers(type_name, data_source):
     
     return resolvers
 
-note_resources = generate_dynamo_data_source("Note")
+for type in graphql_types:
+    resources = generate_dynamo_data_source(type)
+
+
+exports_file = AmplifyExportsFile(f"{stack_name}_exports_file", {
+    "aws_project_region": aws_region,
+    "aws_cognito_region": aws_region,
+    "aws_user_pools_id": user_pool.id,
+    "aws_user_pools_web_client_id": user_pool_client.id,
+    "aws_appsync_graphqlEndpoint": graphql_api.uris["GRAPHQL"],
+    "aws_appsync_region": aws_region,
+    "aws_appsync_authenticationType": "AMAZON_COGNITO_USER_POOLS",
+})
 
 pulumi.export('graphql_api_uri',  graphql_api.uris["GRAPHQL"])
 pulumi.export('user_pool_id',  user_pool.id)

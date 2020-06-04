@@ -1,27 +1,48 @@
 # Pulumi Amplify Proof-of-concept
 
-* Do not call `amplify push`
-* When schema changes call `amplify api gql-compile`
-* `amplify codegen`
-* Still creates amplify app and deployment bucket
-* Different DB backend?
-* Presumably only need to support cognito auth
+This repository is a proof-of-concept of a GraphQL application using AppSync and Cognito which is managed entiely by Pulumi.  This project also makes use of AWS Amplify as a code generator, but not as a cloud provisioner.
+
+This example implements a React app which allows users to create simple notes which are stored in a database.  The notes can only be updated and deleted by their original creator.
+
+**To deploy this example**:
+
+* Checkout the repo and create and enter a Python venv
+* Run `amplify api gql-compile`
+  * This will generate the full schema and AppSync resolvers in the `amplify` directory
+* Run `pulumi up`
+  * This will create the cloud resources for the GraphQL app based on the `amplify` directory
+* Run `npm start` and view the given localhost URL in your browser
 
 
-## Updating the Schema
+**To update the schema:**
 
-If the schema changes you must run the following commands:
+If the schema is changed, you must use Amplify to regenerate the necessary code:
 
 * `amplify codegen` to rebuild the client helper classes
 * `amplify api gql-compile` to rebuild the backend schema and resolvers
 * `pulumi up` to push the new backend configuration to AppSync
 
-## To set this up:
 
-amplify init
-Include cognito
-amplify add api
-amplify codegen add
+**To use this Pulumi code with a new Amplify project:**
+
+If you wish to create a new application based on this example, you should start with an empty directory and start to create an Amplify project:
+
+* `amplify init`
+* `amplify add api`
+  * You MUST choose Cognito for authentication.  Any settings you provide for Cognito are ignored, as the Pulumi script will create its own.
+* `amplify codegen add`
+* _Do **not** call `amplify push`!_
+* Copy `__main__.py` from this project
+* Modify the `graphql_types` and `amplify_api_name` name variables to match your Amplify project
+
+
+
+## Known issues and limitations:
+
+* Although Amplify does not push any of the cloud resources for the API or Cognito, it will still create an Amplify app and deployment bucket which serve no purpose
+* The Pulumi program assumes a DynamoDB backend
+* The Dynamo tables have only a single hash key called `id` each
+* The Pulumi program assumes Cognito for authentication
 
 # React frontend
 

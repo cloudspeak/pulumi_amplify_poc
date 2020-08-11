@@ -7,10 +7,11 @@ This example implements a React app which allows users to create simple notes wh
 **To deploy this example**:
 
 * Checkout the repo and create and enter a Python venv
-* Run `amplify api gql-compile`
-  * This will generate the full schema and AppSync resolvers in the `amplify` directory
-* Run `pulumi up`
-  * This will create the cloud resources for the GraphQL app based on the `amplify` directory
+* Run `pip install -r requirements.txt`
+* Run `amplify init` and confirm that you will use the existing environment `dev`
+* Run `amplify api gql-compile` to generate code in the `amplify` directory
+* Run `pulumi up` to create the cloud resources based on `amplify`
+* Run `npm install` to install the frontend dependencies
 * Run `npm start` and view the given localhost URL in your browser
 
 

@@ -1,12 +1,14 @@
+from os import environ
 from pathlib import Path
 from re import match
 from typing import Any, Optional, Dict
 
 import pulumi
-from pulumi import Input, ResourceOptions
-from pulumi_aws import appsync, cognito, config, dynamodb, iam, s3
+from pulumi import Input, ResourceOptions, get_stack
+from pulumi_aws import appsync, cognito, config, dynamodb, iam, s3, Provider
 from pulumi_aws.get_caller_identity import get_caller_identity
 from amplify_exports_file import AmplifyExportsFile
+
 
 # Modify the variable below if you add new GraphQL types to the schema.
 
@@ -16,8 +18,15 @@ graphql_types = [
 
 amplify_api_name = "notespulumi"
 
-
 ######
+
+# The following environment variables can be set when running this script:
+# NUAGE_LOCAL_AWS         If true, assumes that this Pulumi script is deploying to a local
+#                         cloud stack.  It causes the provider to skip various validation
+#                         measures, use custom endpoints (if provided), and will not
+#                         generate a graphQL API (because the local AppSync simulator
+#                         works in a different manner).
+# NUAGE_DYNAMO_ENDPOINT   A custom endpoint for the DynamoDB API.
 
 aws_region = config.region
 account_id = get_caller_identity().account_id
@@ -26,7 +35,25 @@ amplify_api_build_dir = Path("amplify/backend/api").joinpath(amplify_api_name).j
 schema_path = amplify_api_build_dir.joinpath("schema.graphql")
 schema = schema_path.read_text()
 
+is_local = environ.get("NUAGE_LOCAL_AWS") == "true"
 
+
+# Provider
+
+provider = None
+
+if is_local:
+    provider = Provider("aws_local",
+        skip_credentials_validation=True,
+        skip_metadata_api_check=True,
+        skip_requesting_account_id=True,
+        region=aws_region,
+        endpoints=[{
+            "dynamodb": environ.get("NUAGE_DYNAMO_ENDPOINT")
+        }]
+    )
+else:
+    provider = Provider("aws", region=aws_region)
 
 
 # Resources
@@ -34,20 +61,24 @@ schema = schema_path.read_text()
 user_pool = cognito.UserPool("MyUserPool")
 
 user_pool_client = cognito.UserPoolClient("MyUserPoolClient",
-        user_pool_id=user_pool.id
+        user_pool_id=user_pool.id,
+        opts=ResourceOptions(provider=provider)
 )
 
-stack_name = amplify_api_name
+stack_name = f"{amplify_api_name}_{get_stack()}"
 
-graphql_api = appsync.GraphQLApi(f"{stack_name}_graphql_api",
-        authentication_type="AMAZON_COGNITO_USER_POOLS",
-        user_pool_config={
-            "default_action": "ALLOW",
-            "user_pool_id": user_pool.id,
-            "app_id_client_regex": user_pool_client.id
-        },
-        schema=schema
-)
+# We do not create the graphQL API locally via Pulumi, we pass configuration to the
+# AppSync simulator instead.
+if not is_local:
+    graphql_api = appsync.GraphQLApi(f"{stack_name}_graphql_api",
+            authentication_type="AMAZON_COGNITO_USER_POOLS",
+            user_pool_config={
+                "default_action": "ALLOW",
+                "user_pool_id": user_pool.id,
+                "app_id_client_regex": user_pool_client.id
+            },
+            schema=schema
+    )
 
 def generate_dynamo_data_source(type_name):
     """
@@ -70,70 +101,76 @@ def generate_dynamo_data_source(type_name):
                 }
             ],
             #stream_view_type="NEW_AND_OLD_IMAGES",
-            billing_mode="PAY_PER_REQUEST"       
+            billing_mode="PAY_PER_REQUEST",
+            opts=ResourceOptions(provider=provider)
     )
 
-    data_source_iam_role = iam.Role(f"{stack_name}_{type_name}_role",
-            assume_role_policy="""{
-        "Version": "2012-10-17",
-        "Statement": [
-            {
-                "Effect": "Allow",
-                "Principal": {
-                    "Service": "appsync.amazonaws.com"
+    if not is_local:
+        data_source_iam_role = iam.Role(f"{stack_name}_{type_name}_role",
+                assume_role_policy="""{
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {
+                        "Service": "appsync.amazonaws.com"
+                    },
+                    "Action": "sts:AssumeRole"
+                }
+            ]
+        }"""
+        )
+
+        data_source_iam_role_policy = iam.RolePolicy(f"{stack_name}_{type_name}_role_policy",
+                role=data_source_iam_role.name,
+                name="MyDynamoDBAccess",
+                policy=table.name.apply(lambda table_name: f"""{{
+            "Version": "2012-10-17",
+            "Statement": [
+                {{
+                    "Effect": "Allow",
+                    "Action": [
+                        "dynamodb:BatchGetItem",
+                        "dynamodb:BatchWriteItem",
+                        "dynamodb:PutItem",
+                        "dynamodb:DeleteItem",
+                        "dynamodb:GetItem",
+                        "dynamodb:Scan",
+                        "dynamodb:Query",
+                        "dynamodb:UpdateItem"
+                    ],
+                    "Resource": [
+                        "arn:aws:dynamodb:{aws_region}:{account_id}:table/{table_name}",
+                        "arn:aws:dynamodb:{aws_region}:{account_id}:table/{table_name}/*"
+                    ]
+                }}
+            ]
+        }}""")
+        )
+
+        data_source = appsync.DataSource(f"{stack_name}_{type_name}_data_source",
+                api_id=graphql_api.id,
+                name=f"{type_name}TableDataSource",
+                type="AMAZON_DYNAMODB",
+                service_role_arn=data_source_iam_role.arn,
+                dynamodb_config={
+                    "table_name": table.name
                 },
-                "Action": "sts:AssumeRole"
-            }
-        ]
-    }"""
-    )
+                opts=ResourceOptions(depends_on=[data_source_iam_role])
+        )
 
-    data_source_iam_role_policy = iam.RolePolicy(f"{stack_name}_{type_name}_role_policy",
-            role=data_source_iam_role.name,
-            name="MyDynamoDBAccess",
-            policy=table.name.apply(lambda table_name: f"""{{
-        "Version": "2012-10-17",
-        "Statement": [
-            {{
-                "Effect": "Allow",
-                "Action": [
-                    "dynamodb:BatchGetItem",
-                    "dynamodb:BatchWriteItem",
-                    "dynamodb:PutItem",
-                    "dynamodb:DeleteItem",
-                    "dynamodb:GetItem",
-                    "dynamodb:Scan",
-                    "dynamodb:Query",
-                    "dynamodb:UpdateItem"
-                ],
-                "Resource": [
-                    "arn:aws:dynamodb:{aws_region}:{account_id}:table/{table_name}",
-                    "arn:aws:dynamodb:{aws_region}:{account_id}:table/{table_name}/*"
-                ]
-            }}
-        ]
-    }}""")
-    )
+        resolvers = generate_resolvers(type_name, data_source)
 
-    data_source = appsync.DataSource(f"{stack_name}_{type_name}_data_source",
-            api_id=graphql_api.id,
-            name=f"{type_name}TableDataSource",
-            type="AMAZON_DYNAMODB",
-            service_role_arn=data_source_iam_role.arn,
-            dynamodb_config={
-                "table_name": table.name
-            },
-            opts=ResourceOptions(depends_on=[data_source_iam_role])
-    )
-
-    resolvers = generate_resolvers(type_name, data_source)
-
+        return {
+            "table": table,
+            "data_source_iam_role": data_source_iam_role,
+            "data_source_iam_role_policy": data_source_iam_role_policy,
+            "data_source": data_source,
+            "resolvers": resolvers
+        }
+    
     return {
-        "table": table,
-        "data_source_iam_role": data_source_iam_role,
-        "data_source_iam_role_policy": data_source_iam_role_policy,
-        "data_source": data_source,
-        "resolvers": resolvers
+        "table": table
     }
 
 def generate_resolvers(type_name, data_source):
@@ -179,11 +216,12 @@ exports_file = AmplifyExportsFile(f"{stack_name}_exports_file", {
     "aws_cognito_region": aws_region,
     "aws_user_pools_id": user_pool.id,
     "aws_user_pools_web_client_id": user_pool_client.id,
-    "aws_appsync_graphqlEndpoint": graphql_api.uris["GRAPHQL"],
+    "aws_appsync_graphqlEndpoint": graphql_api.uris["GRAPHQL"] if not is_local else None,
     "aws_appsync_region": aws_region,
     "aws_appsync_authenticationType": "AMAZON_COGNITO_USER_POOLS",
 })
 
-pulumi.export('graphql_api_uri',  graphql_api.uris["GRAPHQL"])
+if not is_local:
+    pulumi.export('graphql_api_uri',  graphql_api.uris["GRAPHQL"])
 pulumi.export('user_pool_id',  user_pool.id)
 pulumi.export('user_pool_client_id',  user_pool_client.id)

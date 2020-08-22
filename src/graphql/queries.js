@@ -6,9 +6,9 @@ export const getNote = /* GraphQL */ `
     getNote(id: $id) {
       id
       note
+      owner
       createdAt
       updatedAt
-      owner
     }
   }
 `;
@@ -22,9 +22,9 @@ export const listNotes = /* GraphQL */ `
       items {
         id
         note
+        owner
         createdAt
         updatedAt
-        owner
       }
       nextToken
     }

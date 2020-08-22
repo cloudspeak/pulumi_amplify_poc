@@ -216,7 +216,8 @@ exports_file = AmplifyExportsFile(f"{stack_name}_exports_file", {
     "aws_cognito_region": aws_region,
     "aws_user_pools_id": user_pool.id,
     "aws_user_pools_web_client_id": user_pool_client.id,
-    "aws_appsync_graphqlEndpoint": graphql_api.uris["GRAPHQL"] if not is_local else None,
+    "aws_appsync_graphqlEndpoint": graphql_api.uris["GRAPHQL"] if not is_local else "http://localhost:62225/graphql",
+    "aws_appsync_dangerously_connect_to_http_endpoint_for_testing": True if is_local else None,
     "aws_appsync_region": aws_region,
     "aws_appsync_authenticationType": "AMAZON_COGNITO_USER_POOLS",
 })

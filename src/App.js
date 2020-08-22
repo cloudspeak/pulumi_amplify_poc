@@ -5,61 +5,9 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import Amplify, {API,graphqlOperation,Auth} from 'aws-amplify';
 import { withAuthenticator} from 'aws-amplify-react'; 
 import aws_exports from './aws-exports'; // specify the location of aws-exports.js file on your project
-import { getNote, listNotes } from './graphql/queries';
+import { listNotes } from './graphql/queries';
 import { deleteNote, createNote, updateNote } from './graphql/mutations';
 Amplify.configure(aws_exports);
-
-// const createNote = `mutation createNote($note: String!){
-//   createNote(input:{
-//     note: $note
-//   }){
-//     __typename
-//     id
-//     note
-//   }
-// }`;
-
-// // const readNote = `query listNotes{
-// //   listNotes{
-// //     items{
-// //       __typename
-// //       id
-// //       note
-// //       owner
-// //     }
-// //   }
-// // }`;
-
-// const readNote = `query listNotes{
-//     listNotes{
-//       items{
-//         __typename
-//         id
-//         note
-//       }
-//     }
-//   }`;
-
-// const updateNote = `mutation updateNote($id: ID!,$note: String){
-//   updateNote(input:{
-//     id: $id
-//     note: $note
-//   }){
-//     __typename
-//     id
-//     note
-//   }
-// }`;
-
-// const deleteNote = `mutation deleteNote($id: ID!){
-//   deleteNote(input:{
-//     id: $id
-//   }){
-//     __typename
-//     id
-//     note
-//   }
-// }`;
 
 class App extends Component {
   constructor(props){

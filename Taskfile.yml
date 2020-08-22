@@ -1,0 +1,13 @@
+version: '2'
+
+tasks:
+  deploy:
+    cmds:
+      - amplify api gql-compile
+      - pulumi up
+    silent: true
+
+  local:
+    cmds:
+      - node ./scripts/run_pulumi_local.js up -s local
+      - ./node_modules/.bin/nf start --procfile local.Procfile

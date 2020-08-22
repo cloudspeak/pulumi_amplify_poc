@@ -1,4 +1,5 @@
 type Note @model @auth(rules: [{allow: owner, operations: [create, update, delete]}]){
   id: ID!
   note: String!
+  owner: String
 }

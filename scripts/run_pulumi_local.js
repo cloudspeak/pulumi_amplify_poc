@@ -1,5 +1,5 @@
 const { spawn }  = require('child_process')
-const { startDynamoDbSimulator } = require('./shared/startDynamoDbSimulator')
+const { startDynamoDbSimulator } = require('./shared/dynamoDbSimulator')
 const log = require('logdown')('run_pulumi_local')
 
 /**
